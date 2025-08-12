@@ -1,0 +1,25 @@
+services:
+  - name: telegram-bot
+    type: web
+    ports:
+      - port: 80
+        protocol: http
+        public: false
+        target_port: ${PORT}
+    env:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      OWNER_ID: ${OWNER_ID}
+      ADMIN_IDS: ${ADMIN_IDS}
+      MANDATORY_CHANNELS: ${MANDATORY_CHANNELS}
+      CONTACT_ADMIN_LINK: ${CONTACT_ADMIN_LINK}
+      LOG_CHANNEL_ID: ${LOG_CHANNEL_ID}
+    routes:
+      - path: /
+    healthchecks:
+      - port: ${PORT}
+        http:
+          path: /health
+    build:
+      type: buildpack
+    run:
+      cmd: python bot.py

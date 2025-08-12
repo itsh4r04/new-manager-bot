@@ -1,0 +1,26 @@
+services:
+  - type: worker
+    name: telegram-bot-worker
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    autoDeploy: true
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: OWNER_ID
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: MANDATORY_CHANNELS
+        sync: false
+      - key: CONTACT_ADMIN_LINK
+        sync: false
+      - key: LOG_CHANNEL_ID
+        sync: false
+      - key: DATA_FILE
+        value: /data/bot_data.json
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
