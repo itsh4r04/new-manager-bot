@@ -37,7 +37,7 @@ _start_keepalive()
 
 
 # --- CONFIGURATION SECTION ---
-# --- Render Environment Variables se jankari lein ---
+# --- Get information from Render Environment Variables ---
 
 # 1. Telegram Bot Token from BotFather
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -124,7 +124,7 @@ def load_data():
     except Exception as e:
         logger.error(f"Error loading data: {e}")
 
-# --- PERMISSION CHECKS ---
+# --- PERMISSION CHEKS ---
 def is_owner(user_id: int) -> bool: return user_id == OWNER_ID
 def is_admin(user_id: int) -> bool: return user_id in ADMIN_IDS
 
@@ -140,16 +140,16 @@ async def is_user_member_of_channel(user_id: int, context: ContextTypes.DEFAULT_
         return False
 
 async def remove_user_from_free_channels(user_id: int, context: ContextTypes.DEFAULT_TYPE):
-    """Kicks a user from all free channels by banning and immediately unbanning."""
+    """Kicks a user from all free batches by banning and immediately unbanning."""
     if is_admin(user_id): return
-    logger.info(f"Kicking user {user_id} from all free channels.")
+    logger.info(f"Kicking user {user_id} from all free batches.")
     for channel_id in FREE_CHANNELS.keys():
         try:
             await context.bot.ban_chat_member(chat_id=channel_id, user_id=user_id)
             await context.bot.unban_chat_member(chat_id=channel_id, user_id=user_id)
-            logger.info(f"User {user_id} kicked from channel {channel_id}.")
+            logger.info(f"User {user_id} kicked from batch {channel_id}.")
         except Exception as e:
-            logger.error(f"Failed to kick user {user_id} from channel {channel_id}: {e}")
+            logger.error(f"Failed to kick user {user_id} from batch {channel_id}: {e}")
 
 
 # --- CHAT MEMBER HANDLER ---
@@ -184,10 +184,10 @@ async def track_user_status(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     if was_member and is_now_kicked_or_left:
         if result.chat.id == MANDATORY_CHANNEL_ID:
-            logger.info(f"User {user.id} left mandatory channel. Kicking from all free channels.")
+            logger.info(f"User {user.id} left mandatory channel. Kicking from all free batches.")
             await remove_user_from_free_channels(user.id, context)
         elif result.chat.type == ChatType.PRIVATE:
-            logger.info(f"User {user.id} blocked the bot. Kicking from all free channels.")
+            logger.info(f"User {user.id} blocked the bot. Kicking from all free batches.")
             user_info = USER_DATA.pop(user.id, {'full_name': user.full_name, 'username': user.username})
             try:
                 username = f"@{user_info['username']}" if user_info.get('username') else "N/A"
@@ -209,27 +209,27 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     USER_DATA[user.id] = {'full_name': user.full_name, 'username': user.username}
     
     if is_owner(user.id):
-        keyboard = [[InlineKeyboardButton("👑 एडमिन पैनल", callback_data='admin_panel')], [InlineKeyboardButton("🔑 मालिक पैनल", callback_data='owner_panel')]]
-        await update.message.reply_text("नमस्ते, मालिक! कृपया एक विकल्प चुनें:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard = [[InlineKeyboardButton("👑 Admin Panel", callback_data='admin_panel')], [InlineKeyboardButton("🔑 Owner Panel", callback_data='owner_panel')]]
+        await update.message.reply_text("Hello, Owner! Please choose an option:", reply_markup=InlineKeyboardMarkup(keyboard))
     elif is_admin(user.id):
-        keyboard = [[InlineKeyboardButton("👑 एडमिन पैनल", callback_data='admin_panel')]]
-        await update.message.reply_text("नमस्ते, एडमिन! कृपया एक विकल्प चुनें:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard = [[InlineKeyboardButton("👑 Admin Panel", callback_data='admin_panel')]]
+        await update.message.reply_text("Hello, Admin! Please choose an option:", reply_markup=InlineKeyboardMarkup(keyboard))
     else:
         is_member = await is_user_member_of_channel(user.id, context)
         if is_member:
             keyboard = [
-                [InlineKeyboardButton("🆓 फ्री चैनल", callback_data='show_free_channels'), InlineKeyboardButton("💎 पेड चैनल", callback_data='show_paid_channels')],
-                [InlineKeyboardButton("📢 अनिवार्य चैनल", url=MANDATORY_CHANNEL_LINK), InlineKeyboardButton("📞 एडमिन से संपर्क करें", url=CONTACT_ADMIN_LINK)],
-                [InlineKeyboardButton("🆔 मेरी ID", callback_data='get_my_id')]
+                [InlineKeyboardButton("🆓 Free Batches", callback_data='show_free_channels'), InlineKeyboardButton("💎 Paid Channels", callback_data='show_paid_channels')],
+                [InlineKeyboardButton("📢 Mandatory Channel", url=MANDATORY_CHANNEL_LINK), InlineKeyboardButton("📞 Contact Admin", url=CONTACT_ADMIN_LINK)],
+                [InlineKeyboardButton("🆔 My ID", callback_data='get_my_id')]
             ]
-            await update.message.reply_text(f"नमस्ते, {user.first_name}! आपका स्वागत है।", reply_markup=InlineKeyboardMarkup(keyboard))
+            await update.message.reply_text(f"Hello, {user.first_name}! Welcome.", reply_markup=InlineKeyboardMarkup(keyboard))
         else:
             if user.id in USER_DATA:
                 await remove_user_from_free_channels(user.id, context)
-            welcome_message = (f"<b>WELCOME TO H4R BATCH BOT</b>\n\nनमस्ते, {user.first_name}!\n\n"
-                               "<b>चेतावनी:</b> यदि आप इस बॉट को ब्लॉक करते हैं या मुख्य चैनल को छोड़ देते हैं, तो आपको सभी फ्री चैनलों से हटा दिया जाएगा।\n\n"
-                               "बॉट का उपयोग करने के लिए कृपया चैनल ज्वाइन करें और फिर 'मैंने ज्वाइन कर लिया है' बटन दबाएं।")
-            keyboard = [[InlineKeyboardButton("➡️ चैनल ज्वाइन करें", url=MANDATORY_CHANNEL_LINK)], [InlineKeyboardButton("✅ मैंने ज्वाइन कर लिया है", callback_data='verify_join')]]
+            welcome_message = (f"<b>WELCOME TO H4R BATCH BOT</b>\n\nHello, {user.first_name}!\n\n"
+                               "<b>Warning:</b> If you block this bot or leave the main channel, you will be removed from all free batches.\n\n"
+                               "To use the bot, please join the channel and then press the 'I have joined' button.")
+            keyboard = [[InlineKeyboardButton("➡️ Join Channel", url=MANDATORY_CHANNEL_LINK)], [InlineKeyboardButton("✅ I have joined", callback_data='verify_join')]]
             await update.message.reply_html(welcome_message, reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -237,13 +237,13 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user or user.id in BLOCKED_USER_IDS: return
     
     if is_admin(user.id):
-        help_text = "नमस्ते! सभी प्रबंधन विकल्पों के लिए कृपया /start कमांड का उपयोग करके बटन वाला मेनू खोलें।"
+        help_text = "Hello! For all management options, please open the button menu using the /start command."
     else:
         is_member = await is_user_member_of_channel(user.id, context)
         if is_member:
-            help_text = "नमस्ते! आप हमारे सदस्य हैं। चैनलों की सूची देखने के लिए /start कमांड का उपयोग करके मेनू खोल सकते हैं।"
+            help_text = "Hello! You are a member. You can open the menu using the /start command to see the list of channels."
         else:
-            help_text = "नमस्ते! इस बॉट का उपयोग करने के लिए, कृपया पहले अनिवार्य चैनल ज्वाइन करें। आप /start कमांड से ज्वाइन लिंक प्राप्त कर सकते हैं।"
+            help_text = "Hello! To use this bot, please join the mandatory channel first. You can get the join link with the /start command."
         
     await update.message.reply_text(help_text)
 
@@ -253,9 +253,9 @@ async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user or not chat: return
 
     if chat.type == ChatType.PRIVATE:
-        text = f"Aapki User ID hai: <code>{user.id}</code>\n(Click karke copy karein)"
+        text = f"Your User ID is: <code>{user.id}</code>\n(Click to copy)"
     else:
-        text = f"Is {chat.type.capitalize()} ki Chat ID hai: <code>{chat.id}</code>\n(Click karke copy karein)"
+        text = f"This {chat.type.capitalize()}'s Chat ID is: <code>{chat.id}</code>\n(Click to copy)"
     await update.message.reply_html(text)
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -267,23 +267,23 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     
     # --- Join Verification ---
     if query.data == 'verify_join':
-        await query.answer("जाँच हो रही है...")
+        await query.answer("Verifying...")
         is_member = await is_user_member_of_channel(user_id, context)
         if is_member:
-            await query.answer("धन्यवाद! आपका स्वागत है।")
+            await query.answer("Thank you! Welcome.")
             keyboard = [
-                [InlineKeyboardButton("🆓 फ्री चैनल", callback_data='show_free_channels'), InlineKeyboardButton("💎 पेड चैनल", callback_data='show_paid_channels')],
-                [InlineKeyboardButton("📢 अनिवार्य चैनल", url=MANDATORY_CHANNEL_LINK), InlineKeyboardButton("📞 एडमिन से संपर्क करें", url=CONTACT_ADMIN_LINK)],
-                [InlineKeyboardButton("🆔 मेरी ID", callback_data='get_my_id')]
+                [InlineKeyboardButton("🆓 Free Batches", callback_data='show_free_channels'), InlineKeyboardButton("💎 Paid Channels", callback_data='show_paid_channels')],
+                [InlineKeyboardButton("📢 Mandatory Channel", url=MANDATORY_CHANNEL_LINK), InlineKeyboardButton("📞 Contact Admin", url=CONTACT_ADMIN_LINK)],
+                [InlineKeyboardButton("🆔 My ID", callback_data='get_my_id')]
             ]
-            await query.edit_message_text(f"नमस्ते, {query.from_user.first_name}! आपका स्वागत है।", reply_markup=InlineKeyboardMarkup(keyboard))
+            await query.edit_message_text(f"Hello, {query.from_user.first_name}! Welcome.", reply_markup=InlineKeyboardMarkup(keyboard))
         else:
-            await query.answer("आप अभी तक चैनल में शामिल नहीं हुए हैं। कृपया ज्वाइन करें और फिर से प्रयास करें।", show_alert=True)
+            await query.answer("You have not joined the channel yet. Please join and try again.", show_alert=True)
         return
 
     # --- Get User ID ---
     if query.data == 'get_my_id':
-        await query.answer(f"आपकी यूजर आईडी: {user_id}", show_alert=True)
+        await query.answer(f"Your User ID: {user_id}", show_alert=True)
         return
 
     # --- Leave Chat Action ---
@@ -292,7 +292,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         chat_id_to_leave = int(query.data.split('_')[-1])
         try:
             await context.bot.leave_chat(chat_id=chat_id_to_leave)
-            await query.answer(f"चैट {chat_id_to_leave} को सफलतापूर्वक छोड़ दिया।")
+            await query.answer(f"Successfully left chat {chat_id_to_leave}.")
             if chat_id_to_leave in ACTIVE_CHATS:
                 ACTIVE_CHATS.pop(chat_id_to_leave)
                 save_data()
@@ -301,10 +301,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             if ACTIVE_CHATS:
                 for chat_id, title in ACTIVE_CHATS.items():
                     keyboard.append([InlineKeyboardButton(f"{title} ({chat_id})", callback_data='noop'), InlineKeyboardButton("❌ Leave", callback_data=f'leave_chat_{chat_id}')])
-            keyboard.append([InlineKeyboardButton("⬅️ वापस", callback_data='owner_panel')])
-            await query.edit_message_text("बॉट इन ग्रुप/चैनलों में है:", reply_markup=InlineKeyboardMarkup(keyboard))
+            keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data='owner_panel')])
+            await query.edit_message_text("The bot is in these groups/channels:", reply_markup=InlineKeyboardMarkup(keyboard))
         except Exception as e:
-            await query.answer(f"चैट छोड़ने में विफल: {e}", show_alert=True)
+            await query.answer(f"Failed to leave chat: {e}", show_alert=True)
         return
 
     await query.answer()
@@ -312,89 +312,89 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # --- Main Menus ---
     if query.data == 'start_member':
         keyboard = [
-            [InlineKeyboardButton("🆓 फ्री चैनल", callback_data='show_free_channels'), InlineKeyboardButton("💎 पेड चैनल", callback_data='show_paid_channels')],
-            [InlineKeyboardButton("📢 अनिवार्य चैनल", url=MANDATORY_CHANNEL_LINK), InlineKeyboardButton("📞 एडमिन से संपर्क करें", url=CONTACT_ADMIN_LINK)],
-            [InlineKeyboardButton("🆔 मेरी ID", callback_data='get_my_id')]
+            [InlineKeyboardButton("🆓 Free Batches", callback_data='show_free_channels'), InlineKeyboardButton("💎 Paid Batches", callback_data='show_paid_channels')],
+            [InlineKeyboardButton("📢 Mandatory Channel", url=MANDATORY_CHANNEL_LINK), InlineKeyboardButton("📞 Contact Admin", url=CONTACT_ADMIN_LINK)],
+            [InlineKeyboardButton("🆔 My ID", callback_data='get_my_id')]
         ]
-        await query.edit_message_text(f"नमस्ते, {query.from_user.first_name}! आपका स्वागत है।", reply_markup=InlineKeyboardMarkup(keyboard))
+        await query.edit_message_text(f"Hello, {query.from_user.first_name}! Welcome.", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'main_menu_owner':
-        keyboard = [[InlineKeyboardButton("👑 एडमिन पैनल", callback_data='admin_panel')], [InlineKeyboardButton("🔑 मालिक पैनल", callback_data='owner_panel')]]
-        await query.edit_message_text("नमस्ते, मालिक! कृपया एक विकल्प चुनें:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard = [[InlineKeyboardButton("👑 Admin Panel", callback_data='admin_panel')], [InlineKeyboardButton("🔑 Owner Panel", callback_data='owner_panel')]]
+        await query.edit_message_text("Hello, Owner! Please choose an option:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'admin_panel':
         if not is_admin(user_id): return
-        keyboard = [[InlineKeyboardButton("📢 ब्रॉडकास्ट", callback_data='ask_broadcast_msg'), InlineKeyboardButton("✍️ पोस्ट", callback_data='ask_post_msg')],
-                    [InlineKeyboardButton("🆓 फ्री चैनल प्रबंधित करें", callback_data='manage_free_channels')],
-                    [InlineKeyboardButton("💎 पेड चैनल प्रबंधित करें", callback_data='manage_paid_channels')]]
+        keyboard = [[InlineKeyboardButton("📢 Broadcast", callback_data='ask_broadcast_msg'), InlineKeyboardButton("✍️ Post", callback_data='ask_post_msg')],
+                    [InlineKeyboardButton("🆓 Manage Free Batches", callback_data='manage_free_channels')],
+                    [InlineKeyboardButton("💎 Manage Paid Channels", callback_data='manage_paid_channels')]]
         if is_owner(user_id):
-            keyboard.append([InlineKeyboardButton("⬅️ वापस", callback_data='main_menu_owner')])
-        await query.edit_message_text(text="👑 एडमिन पैनल:", reply_markup=InlineKeyboardMarkup(keyboard))
+            keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data='main_menu_owner')])
+        await query.edit_message_text(text="👑 Admin Panel:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'owner_panel':
         if not is_owner(user_id): return
-        keyboard = [[InlineKeyboardButton("➕ एडमिन जोड़ें", callback_data='ask_add_admin'), InlineKeyboardButton("➖ एडमिन हटाएं", callback_data='ask_remove_admin')],
-                    [InlineKeyboardButton("📋 एडमिन सूची", callback_data='list_admins')],
-                    [InlineKeyboardButton("👥 उपयोगकर्ता प्रबंधित करें", callback_data='manage_users')],
+        keyboard = [[InlineKeyboardButton("➕ Add Admin", callback_data='ask_add_admin'), InlineKeyboardButton("➖ Remove Admin", callback_data='ask_remove_admin')],
+                    [InlineKeyboardButton("📋 List Admins", callback_data='list_admins')],
+                    [InlineKeyboardButton("👥 Manage Users", callback_data='manage_users')],
                     [InlineKeyboardButton("📡 Join List", callback_data='join_list')],
-                    [InlineKeyboardButton("⬅️ वापस", callback_data='main_menu_owner')]]
-        await query.edit_message_text(text="🔑 मालिक पैनल:", reply_markup=InlineKeyboardMarkup(keyboard))
+                    [InlineKeyboardButton("⬅️ Back", callback_data='main_menu_owner')]]
+        await query.edit_message_text(text="🔑 Owner Panel:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     # --- Ask for Input ---
     elif query.data.startswith('ask_'):
         if not is_admin(user_id): return
         action = query.data.split('_', 1)[1]
         prompts = {
-            'broadcast_msg': ("सभी उपयोगकर्ताओं को भेजने के लिए संदेश भेजें:", 'awaiting_broadcast_message', 'admin_panel'),
-            'post_msg': ("सभी फ्री चैनलों पर भेजने के लिए संदेश भेजें:", 'awaiting_post_message', 'admin_panel'),
-            'add_admin': ("नए एडमिन की यूजर आईडी भेजें:", 'awaiting_add_admin_id', 'owner_panel'),
-            'remove_admin': ("हटाने के लिए एडमिन की यूजर आईडी भेजें:", 'awaiting_remove_admin_id', 'owner_panel'),
-            'block_user': ("ब्लॉक करने के लिए यूजर की आईडी भेजें:", 'awaiting_block_user_id', 'manage_users'),
-            'unblock_user': ("अनब्लॉक करने के लिए यूजर की आईडी भेजें:", 'awaiting_unblock_user_id', 'manage_users'),
-            'add_free_channel_name': ("कृपया नए फ्री बैच का नाम भेजें:", 'awaiting_free_channel_name', 'manage_free_channels'),
-            'remove_free_channel': ("हटाने के लिए फ्री चैनल का नंबर भेजें:", 'awaiting_remove_free_channel_num', 'manage_free_channels'),
-            'add_paid_channel_name': ("कृपया नए पेड बैच का नाम भेजें:", 'awaiting_paid_channel_name', 'manage_paid_channels'),
-            'remove_paid_channel': ("हटाने के लिए पेड चैनल का नंबर भेजें:", 'awaiting_remove_paid_channel_num', 'manage_paid_channels'),
+            'broadcast_msg': ("Send the message to be broadcast to all users:", 'awaiting_broadcast_message', 'admin_panel'),
+            'post_msg': ("Send the message to be posted in all free batches:", 'awaiting_post_message', 'admin_panel'),
+            'add_admin': ("Send the User ID of the new admin:", 'awaiting_add_admin_id', 'owner_panel'),
+            'remove_admin': ("Send the User ID of the admin to remove:", 'awaiting_remove_admin_id', 'owner_panel'),
+            'block_user': ("Send the User ID of the user to block:", 'awaiting_block_user_id', 'manage_users'),
+            'unblock_user': ("Send the User ID of the user to unblock:", 'awaiting_unblock_user_id', 'manage_users'),
+            'add_free_channel_name': ("Please send the name of the new free batch:", 'awaiting_free_channel_name', 'manage_free_channels'),
+            'remove_free_channel': ("Send the number of the free batch to remove:", 'awaiting_remove_free_channel_num', 'manage_free_channels'),
+            'add_paid_channel_name': ("Please send the name of the new paid batch:", 'awaiting_paid_channel_name', 'manage_paid_channels'),
+            'remove_paid_channel': ("Send the number of the paid channel to remove:", 'awaiting_remove_paid_channel_num', 'manage_paid_channels'),
         }
         if action in prompts:
             prompt_text, state, back_cb = prompts[action]
             context.user_data['next_step'] = state
-            keyboard = [[InlineKeyboardButton("⬅️ वापस", callback_data=back_cb)]]
+            keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data=back_cb)]]
             await query.edit_message_text(prompt_text, reply_markup=InlineKeyboardMarkup(keyboard))
 
     # --- Manage Menus ---
     elif query.data == 'manage_free_channels':
         if not is_admin(user_id): return
-        keyboard = [[InlineKeyboardButton("➕ जोड़ें", callback_data='ask_add_free_channel_name'), InlineKeyboardButton("➖ हटाएं", callback_data='ask_remove_free_channel')],
-                    [InlineKeyboardButton("📋 सूची देखें", callback_data='list_free_channels_admin')],
-                    [InlineKeyboardButton("⬅️ वापस", callback_data='admin_panel')]]
-        await query.edit_message_text("🆓 फ्री चैनल प्रबंधित करें:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard = [[InlineKeyboardButton("➕ Add", callback_data='ask_add_free_channel_name'), InlineKeyboardButton("➖ Remove", callback_data='ask_remove_free_channel')],
+                    [InlineKeyboardButton("📋 View List", callback_data='list_free_channels_admin')],
+                    [InlineKeyboardButton("⬅️ Back", callback_data='admin_panel')]]
+        await query.edit_message_text("🆓 Manage Free Batches:", reply_markup=InlineKeyboardMarkup(keyboard))
         
     elif query.data == 'manage_paid_channels':
         if not is_admin(user_id): return
-        keyboard = [[InlineKeyboardButton("➕ जोड़ें", callback_data='ask_add_paid_channel_name'), InlineKeyboardButton("➖ हटाएं", callback_data='ask_remove_paid_channel')],
-                    [InlineKeyboardButton("📋 सूची देखें", callback_data='list_paid_channels_admin')],
-                    [InlineKeyboardButton("⬅️ वापस", callback_data='admin_panel')]]
-        await query.edit_message_text("💎 पेड चैनल प्रबंधित करें:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard = [[InlineKeyboardButton("➕ Add", callback_data='ask_add_paid_channel_name'), InlineKeyboardButton("➖ Remove", callback_data='ask_remove_paid_channel')],
+                    [InlineKeyboardButton("📋 View List", callback_data='list_paid_channels_admin')],
+                    [InlineKeyboardButton("⬅️ Back", callback_data='admin_panel')]]
+        await query.edit_message_text("💎 Manage Paid Channels:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'manage_users':
         if not is_owner(user_id): return
-        keyboard = [[InlineKeyboardButton("📋 उपयोगकर्ता सूची", callback_data='list_users'), InlineKeyboardButton("📊 बॉट आँकड़े", callback_data='bot_stats')],
-                    [InlineKeyboardButton("🚫 ब्लॉक उपयोगकर्ता", callback_data='ask_block_user'), InlineKeyboardButton("✅ अनब्लॉक उपयोगकर्ता", callback_data='ask_unblock_user')],
-                    [InlineKeyboardButton("📜 ब्लॉक सूची", callback_data='list_blocked_users')],
-                    [InlineKeyboardButton("⬅️ वापस", callback_data='owner_panel')]]
-        await query.edit_message_text("👥 उपयोगकर्ता प्रबंधित करें:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard = [[InlineKeyboardButton("📋 User List", callback_data='list_users'), InlineKeyboardButton("📊 Bot Stats", callback_data='bot_stats')],
+                    [InlineKeyboardButton("🚫 Block User", callback_data='ask_block_user'), InlineKeyboardButton("✅ Unblock User", callback_data='ask_unblock_user')],
+                    [InlineKeyboardButton("📜 Block List", callback_data='list_blocked_users')],
+                    [InlineKeyboardButton("⬅️ Back", callback_data='owner_panel')]]
+        await query.edit_message_text("👥 Manage Users:", reply_markup=InlineKeyboardMarkup(keyboard))
     
     # --- List Actions ---
     elif query.data == 'list_admins':
         if not is_owner(user_id): return
         admin_list_str = "\n".join(map(str, ADMIN_IDS))
-        keyboard = [[InlineKeyboardButton("⬅️ वापस", callback_data='owner_panel')]]
-        await query.edit_message_text(f"<b>मालिक:</b> {OWNER_ID}\n\n<b>सभी एडमिन:</b>\n{admin_list_str}", parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data='owner_panel')]]
+        await query.edit_message_text(f"<b>Owner:</b> {OWNER_ID}\n\n<b>All Admins:</b>\n{admin_list_str}", parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'list_users':
         if not is_owner(user_id): return
-        keyboard = [[InlineKeyboardButton("⬅️ वापस", callback_data='manage_users')]]
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data='manage_users')]]
         if USER_DATA:
             user_list = []
             for uid, data in USER_DATA.items():
@@ -404,35 +404,35 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             
             if user_list:
                 full_list_str = "\n\n".join(user_list)
-                await query.edit_message_text(f"<b>बॉट उपयोगकर्ता:</b>\n\n{full_list_str}", parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
+                await query.edit_message_text(f"<b>Bot Users:</b>\n\n{full_list_str}", parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
             else:
-                await query.edit_message_text("एडमिन के अलावा कोई उपयोगकर्ता नहीं है।", reply_markup=InlineKeyboardMarkup(keyboard))
+                await query.edit_message_text("There are no users other than admins.", reply_markup=InlineKeyboardMarkup(keyboard))
         else:
-            await query.edit_message_text("कोई उपयोगकर्ता नहीं मिला।", reply_markup=InlineKeyboardMarkup(keyboard))
+            await query.edit_message_text("No users found.", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'list_blocked_users':
         if not is_owner(user_id): return
-        keyboard = [[InlineKeyboardButton("⬅️ वापस", callback_data='manage_users')]]
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data='manage_users')]]
         if BLOCKED_USER_IDS:
             blocked_list_str = "\n".join(f"<code>{uid}</code>" for uid in BLOCKED_USER_IDS)
-            await query.edit_message_text(f"<b>ब्लॉक किए गए उपयोगकर्ता:</b>\n\n{blocked_list_str}", parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
+            await query.edit_message_text(f"<b>Blocked Users:</b>\n\n{blocked_list_str}", parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard))
         else:
-            await query.edit_message_text("कोई उपयोगकर्ता ब्लॉक नहीं है।", reply_markup=InlineKeyboardMarkup(keyboard))
+            await query.edit_message_text("No users are blocked.", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'bot_stats':
         if not is_owner(user_id): return
-        keyboard = [[InlineKeyboardButton("⬅️ वापस", callback_data='manage_users')]]
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data='manage_users')]]
         total_users = len(USER_DATA)
         admin_count = len(ADMIN_IDS)
         blocked_count = len(BLOCKED_USER_IDS)
         normal_users = total_users - admin_count
         
         stats_text = (
-            f"📊 **बॉट आँकड़े** 📊\n\n"
-            f"कुल ज्ञात उपयोगकर्ता: {total_users}\n"
-            f"एडमिन: {admin_count}\n"
-            f"सामान्य उपयोगकर्ता: {normal_users}\n"
-            f"ब्लॉक किए गए उपयोगकर्ता: {blocked_count}"
+            f"📊 **Bot Statistics** 📊\n\n"
+            f"Total known users: {total_users}\n"
+            f"Admins: {admin_count}\n"
+            f"Normal users: {normal_users}\n"
+            f"Blocked users: {blocked_count}"
         )
         await query.edit_message_text(stats_text, parse_mode='Markdown', reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -442,27 +442,28 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if ACTIVE_CHATS:
             for chat_id, title in ACTIVE_CHATS.items():
                 keyboard.append([InlineKeyboardButton(f"{title} ({chat_id})", callback_data='noop'), InlineKeyboardButton("❌ Leave", callback_data=f'leave_chat_{chat_id}')])
-        keyboard.append([InlineKeyboardButton("⬅️ वापस", callback_data='owner_panel')])
-        await query.edit_message_text("बॉट इन ग्रुप/चैनलों में है:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data='owner_panel')])
+        await query.edit_message_text("The bot is in these groups/channels:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'list_free_channels_admin':
         if not is_admin(user_id): return
-        header = "<b>फ्री चैनल सूची (एडमिन व्यू):</b>\n\n"
-        keyboard = [[InlineKeyboardButton("⬅️ वापस", callback_data='manage_free_channels')]]
+        header = "<b>Free Batches List (Admin View):</b>\n\n"
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data='manage_free_channels')]]
         if FREE_CHANNELS:
-            channel_list = "\n".join(f"{i+1}. <a href='{FREE_CHANNEL_LINKS.get(ch_id, '')}'>{title}</a>" for i, (ch_id, title) in enumerate(FREE_CHANNELS.items()))
+            # MODIFIED LINE: Added the chat_id next to the batch name
+            channel_list = "\n".join(f"{i+1}. <a href='{FREE_CHANNEL_LINKS.get(ch_id, '')}'>{title}</a> - <code>{ch_id}</code>" for i, (ch_id, title) in enumerate(FREE_CHANNELS.items()))
         else:
-            channel_list = "अभी कोई फ्री चैनल उपलब्ध नहीं है।"
+            channel_list = "No free batches are available at the moment."
         await query.edit_message_text(header + channel_list, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard), disable_web_page_preview=True)
 
     elif query.data == 'list_paid_channels_admin':
         if not is_admin(user_id): return
-        header = "<b>पेड चैनल सूची (एडमिन व्यू):</b>\n\n"
-        keyboard = [[InlineKeyboardButton("⬅️ वापस", callback_data='manage_paid_channels')]]
+        header = "<b>Paid Channels List (Admin View):</b>\n\n"
+        keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data='manage_paid_channels')]]
         if PAID_CHANNELS:
             paid_list = "\n".join(f"{i+1}. {entry}" for i, entry in enumerate(PAID_CHANNELS))
         else:
-            paid_list = "अभी कोई पेड चैनल उपलब्ध नहीं है।"
+            paid_list = "No paid channels are available at the moment."
         await query.edit_message_text(header + paid_list, parse_mode='HTML', reply_markup=InlineKeyboardMarkup(keyboard), disable_web_page_preview=True)
 
     # --- User Channel Lists (Buttons) ---
@@ -470,8 +471,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         keyboard = []
         for chat_id, title in FREE_CHANNELS.items():
             keyboard.append([InlineKeyboardButton(f"🆓 {title}", callback_data=f'join_free_{chat_id}')])
-        keyboard.append([InlineKeyboardButton("⬅️ वापस", callback_data='start_member')])
-        await query.edit_message_text("कृपया एक फ्री चैनल चुनें:", reply_markup=InlineKeyboardMarkup(keyboard))
+        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data='start_member')])
+        await query.edit_message_text("Please select a free batch:", reply_markup=InlineKeyboardMarkup(keyboard))
 
     elif query.data == 'show_paid_channels':
         keyboard = []
@@ -480,9 +481,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 name = entry.split('<code>')[1].split('</code>')[0]
                 keyboard.append([InlineKeyboardButton(f"💎 {name}", callback_data=f'join_paid_{i}')])
             except IndexError:
-                keyboard.append([InlineKeyboardButton(f"💎 पेड चैनल {i+1}", callback_data=f'join_paid_{i}')])
-        keyboard.append([InlineKeyboardButton("⬅️ वापस", callback_data='start_member')])
-        await query.edit_message_text("कृपया एक पेड चैनल चुनें:", reply_markup=InlineKeyboardMarkup(keyboard))
+                keyboard.append([InlineKeyboardButton(f"💎 Paid Channel {i+1}", callback_data=f'join_paid_{i}')])
+        keyboard.append([InlineKeyboardButton("⬅️ Back", callback_data='start_member')])
+        await query.edit_message_text("Please select a paid channel:", reply_markup=InlineKeyboardMarkup(keyboard))
     
     # --- Join Button Actions ---
     elif query.data.startswith('join_'):
@@ -492,9 +493,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             chat_id = int(query.data.split('_')[-1])
             link = FREE_CHANNEL_LINKS.get(chat_id)
             if link:
-                await context.bot.send_message(chat_id=user_id, text=f"चैनल ज्वाइन करने के लिए नीचे दिए गए बटन पर क्लिक करें:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ अभी ज्वाइन करें", url=link)]]))
+                await context.bot.send_message(chat_id=user_id, text=f"Click the button below to join the batch:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Join Now", url=link)]]))
             else:
-                await query.answer("इस चैनल के लिए लिंक उपलब्ध नहीं है।", show_alert=True)
+                await query.answer("The link for this batch is not available.", show_alert=True)
         
         elif query.data.startswith('join_paid_'):
             index = int(query.data.split('_')[-1])
@@ -503,13 +504,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 try:
                     link = html_entry.split("href='")[1].split("'")[0]
                     purchase_info = ("\n\n----------------------------------------\n"
-                                     "<b>यदि आप कोर्स खरीदने में रुचि रखते हैं, तो कृपया अधिक जानकारी के लिए @H4R_Contact_bot पर संदेश भेजें।</b>")
-                    await context.bot.send_message(chat_id=user_id, text=f"चैनल ज्वाइन करने के लिए नीचे दिए गए बटन पर क्लिक करें:{purchase_info}", 
-                                                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ अभी ज्वाइन करें", url=link)]]),
-                                                 parse_mode='HTML',
-                                                 disable_web_page_preview=True)
+                                     "<b>If you are interested in purchasing the course, please message @H4R_Contact_bot for more information.</b>")
+                    await context.bot.send_message(chat_id=user_id, text=f"Click the button below to join the channel:{purchase_info}", 
+                                                   reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Join Now", url=link)]]),
+                                                   parse_mode='HTML',
+                                                   disable_web_page_preview=True)
                 except IndexError:
-                    await query.answer("इस चैनल के लिए लिंक नहीं मिला।", show_alert=True)
+                    await query.answer("Could not find a link for this channel.", show_alert=True)
         return
 
 
@@ -525,7 +526,7 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # --- Broadcast & Post ---
     if state == 'awaiting_broadcast_message':
         active_users = [uid for uid in USER_DATA.keys() if uid not in ADMIN_IDS and uid not in BLOCKED_USER_IDS]
-        await update.message.reply_text(f"{len(active_users)} उपयोगकर्ताओं को संदेश भेजा जा रहा है...")
+        await update.message.reply_text(f"Sending message to {len(active_users)} users...")
         success_count, failed_count = 0, 0
         for u_id in active_users:
             try:
@@ -533,7 +534,7 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 success_count += 1
             except Exception:
                 failed_count += 1
-        await update.message.reply_text(f"ब्रॉडकास्ट पूरा हुआ।\nसफलतापूर्वक: {success_count}, विफल: {failed_count}")
+        await update.message.reply_text(f"Broadcast complete.\nSuccess: {success_count}, Failed: {failed_count}")
 
     elif state == 'awaiting_post_message':
         successful_posts, failed_posts = 0, []
@@ -543,8 +544,8 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 successful_posts += 1
             except Exception as e:
                 failed_posts.append(str(channel_id))
-        report = f"संदेश सफलतापूर्वक {successful_posts} चैनलों पर भेज दिया गया है।"
-        if failed_posts: report += f"\nइन पर भेजने में विफल रहा: {', '.join(failed_posts)}"
+        report = f"Message successfully sent to {successful_posts} batches."
+        if failed_posts: report += f"\nFailed to send to: {', '.join(failed_posts)}"
         await update.message.reply_text(report)
 
     # --- Admin & User Management ---
@@ -555,43 +556,43 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if state == 'awaiting_add_admin_id':
                 if target_id not in ADMIN_IDS:
                     ADMIN_IDS.append(target_id)
-                    await update.message.reply_text(f"एडमिन {target_id} को सफलतापूर्वक जोड़ दिया गया है।")
+                    await update.message.reply_text(f"Admin {target_id} has been added successfully.")
                 else:
-                    await update.message.reply_text("यह यूजर पहले से ही एडमिन है।")
+                    await update.message.reply_text("This user is already an admin.")
             elif state == 'awaiting_remove_admin_id':
                 if target_id == OWNER_ID:
-                    await update.message.reply_text("आप मालिक को नहीं हटा सकते।")
+                    await update.message.reply_text("You cannot remove the owner.")
                 elif target_id in ADMIN_IDS:
                     ADMIN_IDS.remove(target_id)
-                    await update.message.reply_text(f"एडमिन {target_id} को सफलतापूर्वक हटा दिया गया है।")
+                    await update.message.reply_text(f"Admin {target_id} has been removed successfully.")
                 else:
-                    await update.message.reply_text("यह यूजर एडमिन नहीं है।")
+                    await update.message.reply_text("This user is not an admin.")
             elif state == 'awaiting_block_user_id':
                 if target_id == OWNER_ID or target_id in ADMIN_IDS:
-                    await update.message.reply_text("आप किसी एडमिन या मालिक को ब्लॉक नहीं कर सकते।")
+                    await update.message.reply_text("You cannot block an admin or the owner.")
                 else:
                     BLOCKED_USER_IDS.add(target_id)
-                    await update.message.reply_text(f"उपयोगकर्ता {target_id} को सफलतापूर्वक ब्लॉक कर दिया गया है।")
+                    await update.message.reply_text(f"User {target_id} has been blocked successfully.")
             elif state == 'awaiting_unblock_user_id':
                 if target_id in BLOCKED_USER_IDS:
                     BLOCKED_USER_IDS.remove(target_id)
-                    await update.message.reply_text(f"उपयोगकर्ता {target_id} को सफलतापूर्वक अनब्लॉक कर दिया गया है।")
+                    await update.message.reply_text(f"User {target_id} has been unblocked successfully.")
                 else:
-                    await update.message.reply_text("यह उपयोगकर्ता ब्लॉक सूची में नहीं है।")
+                    await update.message.reply_text("This user is not in the block list.")
             save_data()
         except ValueError:
-            await update.message.reply_text("अमान्य यूजर आईडी।")
+            await update.message.reply_text("Invalid User ID.")
 
     # --- Channel Management ---
     elif state == 'awaiting_free_channel_name':
         context.user_data['new_channel_name'] = text
         context.user_data['next_step'] = 'awaiting_free_channel_link'
-        await update.message.reply_text("ठीक है, नाम सेट हो गया।\n\nअब इस बैच का इनवाइट लिंक भेजें (https://t.me/+...):")
+        await update.message.reply_text("Okay, the name is set.\n\nNow, send the invite link for this batch (https://t.me/+...):")
     
     elif state == 'awaiting_free_channel_link':
         context.user_data['new_channel_link'] = text
         context.user_data['next_step'] = 'awaiting_free_channel_chat_id'
-        await update.message.reply_text("ठीक है, लिंक सेट हो गया।\n\nअब इस बैच की चैट आईडी भेजें (-100...):")
+        await update.message.reply_text("Okay, the link is set.\n\nNow, send the Chat ID for this batch (-100...):")
 
     elif state == 'awaiting_free_channel_chat_id':
         name = context.user_data.pop('new_channel_name', None)
@@ -599,18 +600,18 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             chat_id = int(text)
             if not str(chat_id).startswith("-100"):
-                await update.message.reply_text("अमान्य चैट आईडी। यह -100 से शुरू होनी चाहिए। कृपया फिर से प्रयास करें।")
+                await update.message.reply_text("Invalid Chat ID. It must start with -100. Please try again.")
                 return
 
             if name and link:
                 FREE_CHANNELS[chat_id] = name
                 FREE_CHANNEL_LINKS[chat_id] = link
                 save_data()
-                await update.message.reply_text(f"सफलता! फ्री चैनल '{name}' को सूची में जोड़ दिया गया है।")
+                await update.message.reply_text(f"Success! Free batch '{name}' has been added to the list.")
             else:
-                await update.message.reply_text("कुछ जानकारी गुम थी। कृपया प्रक्रिया फिर से शुरू करें।")
+                await update.message.reply_text("Some information was missing. Please start the process again.")
         except ValueError:
-            await update.message.reply_text("अमान्य चैट आईडी। कृपया केवल नंबर भेजें।")
+            await update.message.reply_text("Invalid Chat ID. Please send numbers only.")
 
     elif state == 'awaiting_remove_free_channel_num':
         try:
@@ -621,24 +622,24 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 removed_channel_title = FREE_CHANNELS.pop(removed_channel_id)
                 FREE_CHANNEL_LINKS.pop(removed_channel_id, None)
                 save_data()
-                await update.message.reply_text(f"फ्री चैनल '{removed_channel_title}' को सूची से हटा दिया गया है।")
+                await update.message.reply_text(f"Free batch '{removed_channel_title}' has been removed from the list.")
             else:
-                await update.message.reply_text("अमान्य नंबर।")
+                await update.message.reply_text("Invalid number.")
         except ValueError:
-            await update.message.reply_text("कृपया एक नंबर भेजें।")
+            await update.message.reply_text("Please send a number.")
 
     elif state == 'awaiting_paid_channel_name':
         context.user_data['new_channel_name'] = text
         context.user_data['next_step'] = 'awaiting_paid_channel_link'
-        await update.message.reply_text("अब इस बैच का इनवाइट लिंक भेजें (https://t.me/+...):")
+        await update.message.reply_text("Now send the invite link for this batch (https://t.me/+...):")
 
     elif state == 'awaiting_paid_channel_link':
         name = context.user_data.pop('new_channel_name', 'N/A')
         link = text
-        html_entry = f"<a href='{link}'>💎<code>{name}</code></a> - प्रीमियम कंटेंट के लिए।"
+        html_entry = f"<a href='{link}'>💎<code>{name}</code></a> - For premium content."
         PAID_CHANNELS.append(html_entry)
         save_data()
-        await update.message.reply_text(f"पेड चैनल '{name}' सफलतापूर्वक जोड़ दिया गया है।")
+        await update.message.reply_text(f"Paid channel '{name}' added successfully.")
 
     elif state == 'awaiting_remove_paid_channel_num':
         try:
@@ -646,11 +647,11 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if 0 <= index_to_remove < len(PAID_CHANNELS):
                 removed_entry = PAID_CHANNELS.pop(index_to_remove)
                 save_data()
-                await update.message.reply_html(f"पेड चैनल एंट्री हटा दी गई: {removed_entry}")
+                await update.message.reply_html(f"Paid channel entry removed: {removed_entry}")
             else:
-                await update.message.reply_text("अमान्य नंबर।")
+                await update.message.reply_text("Invalid number.")
         except ValueError:
-            await update.message.reply_text("कृपया एक नंबर भेजें।")
+            await update.message.reply_text("Please send a number.")
 
 # --- Global Error Handler ---
 async def error_handler(update, context):
@@ -677,7 +678,7 @@ def main():
     application.add_handler(ChatMemberHandler(track_user_status, ChatMemberHandler.CHAT_MEMBER))
     application.add_handler(ChatMemberHandler(track_bot_status, ChatMemberHandler.MY_CHAT_MEMBER))
     
-    print("बॉट शुरू हो गया है... (उपयोगकर्ता प्रबंधन के साथ)")
+    print("Bot has started... (with user management)")
     application.run_polling()
 
 
