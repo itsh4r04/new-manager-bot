@@ -130,6 +130,16 @@ def is_admin(user_id: int) -> bool: return user_id in ADMIN_IDS
 
 
 # --- HELPER FUNCTIONS ---
+async def job_delete_message(context: ContextTypes.DEFAULT_TYPE):
+    """Callback function for the job queue to delete a message."""
+    job = context.job
+    try:
+        await context.bot.delete_message(chat_id=job.chat_id, message_id=job.data)
+        logger.info(f"Job: Deleted message {job.data} in chat {job.chat_id}")
+    except Exception as e:
+        # Message might have been deleted by the user already, so we can ignore it.
+        logger.warning(f"Job: Failed to delete message {job.data} in chat {job.chat_id}: {e}")
+
 async def is_user_member_of_channel(user_id: int, context: ContextTypes.DEFAULT_TYPE) -> bool:
     if is_admin(user_id): return True
     try:
@@ -312,7 +322,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # --- Main Menus ---
     if query.data == 'start_member':
         keyboard = [
-            [InlineKeyboardButton("🆓 Free Batches", callback_data='show_free_channels'), InlineKeyboardButton("💎 Paid Batches", callback_data='show_paid_channels')],
+            [InlineKeyboardButton("🆓 Free Batches", callback_data='show_free_channels'), InlineKeyboardButton("💎 Paid Channels", callback_data='show_paid_channels')],
             [InlineKeyboardButton("📢 Mandatory Channel", url=MANDATORY_CHANNEL_LINK), InlineKeyboardButton("📞 Contact Admin", url=CONTACT_ADMIN_LINK)],
             [InlineKeyboardButton("🆔 My ID", callback_data='get_my_id')]
         ]
@@ -450,7 +460,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         header = "<b>Free Batches List (Admin View):</b>\n\n"
         keyboard = [[InlineKeyboardButton("⬅️ Back", callback_data='manage_free_channels')]]
         if FREE_CHANNELS:
-            # MODIFIED LINE: Added the chat_id next to the batch name
             channel_list = "\n".join(f"{i+1}. <a href='{FREE_CHANNEL_LINKS.get(ch_id, '')}'>{title}</a> - <code>{ch_id}</code>" for i, (ch_id, title) in enumerate(FREE_CHANNELS.items()))
         else:
             channel_list = "No free batches are available at the moment."
@@ -493,7 +502,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             chat_id = int(query.data.split('_')[-1])
             link = FREE_CHANNEL_LINKS.get(chat_id)
             if link:
-                await context.bot.send_message(chat_id=user_id, text=f"Click the button below to join the batch:", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Join Now", url=link)]]))
+                sent_message = await context.bot.send_message(
+                    chat_id=user_id, 
+                    text="Click the button to join the batch.\n\nThis message will disappear in 60 seconds.", 
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Join Now", url=link)]])
+                )
+                # Schedule the message for deletion
+                context.job_queue.run_once(
+                    job_delete_message, 
+                    when=60, 
+                    data=sent_message.message_id, 
+                    chat_id=user_id
+                )
             else:
                 await query.answer("The link for this batch is not available.", show_alert=True)
         
@@ -504,11 +524,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 try:
                     link = html_entry.split("href='")[1].split("'")[0]
                     purchase_info = ("\n\n----------------------------------------\n"
-                                     "<b>If you are interested in purchasing the course, please message @H4R_Contact_bot for more information.</b>")
-                    await context.bot.send_message(chat_id=user_id, text=f"Click the button below to join the channel:{purchase_info}", 
-                                                   reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Join Now", url=link)]]),
-                                                   parse_mode='HTML',
-                                                   disable_web_page_preview=True)
+                                     "<b>If you are interested in purchasing the course, please message @H4R_Contact_bot for more information.</b>\n\n"
+                                     "This message will disappear in 60 seconds.")
+                    sent_message = await context.bot.send_message(
+                        chat_id=user_id, 
+                        text=f"Click the button below to join the channel:{purchase_info}", 
+                        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✅ Join Now", url=link)]]),
+                        parse_mode='HTML',
+                        disable_web_page_preview=True
+                    )
+                    # Schedule the message for deletion
+                    context.job_queue.run_once(
+                        job_delete_message, 
+                        when=60, 
+                        data=sent_message.message_id, 
+                        chat_id=user_id
+                    )
                 except IndexError:
                     await query.answer("Could not find a link for this channel.", show_alert=True)
         return
