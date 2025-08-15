@@ -258,23 +258,45 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(help_text)
 
 async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # --- DEBUGGING LOGS ---
+    # Yeh message aapke logs mein aayega jab bhi /id command receive hoga
+    logger.info("--- /id command received ---")
+    
     chat = update.effective_chat
     user = update.effective_user
-    if not user or not chat: return
+    
+    if not chat:
+        logger.warning("Update received but effective_chat is None.")
+        return
+        
+    # Yeh logs mein chat ka type aur ID print karega
+    logger.info(f"Command received in Chat with ID: {chat.id} and Type: {chat.type}")
+    
+    if not user:
+        logger.warning("effective_user is None in this update.")
+    else:
+        logger.info(f"Command sent by User ID: {user.id}")
+    # --- END DEBUGGING LOGS ---
+
+    if not update.message:
+        logger.warning("This update does not contain a message.")
+        return
 
     if chat.type == ChatType.PRIVATE:
         text = f"Your User ID is: <code>{user.id}</code>\n(Click to copy)"
     elif chat.type == ChatType.CHANNEL:
-        # Jab command channel mein aayega, toh bot yahan se reply karega
         text = f"This Channel's Chat ID is: <code>{chat.id}</code>\n(Click to copy)"
     else:
-        # Yeh Group ya Supergroup ke liye hai
         text = f"This {chat.type.capitalize()}'s Chat ID is: <code>{chat.id}</code>\n(Click to copy)"
     
     try:
+        logger.info(f"Attempting to send reply to chat {chat.id}...")
         await update.message.reply_html(text)
+        logger.info(f"Successfully sent reply to chat {chat.id}")
     except Exception as e:
-        logger.error(f"Failed to send /id reply in chat {chat.id}: {e}")
+        # Agar message bhejne mein koi error aata hai, to woh yahan log ho jayega
+        logger.error(f"Error sending /id reply in chat {chat.id}: {e}")
+        logger.exception(e) # Yeh poori error detail dega
         
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
