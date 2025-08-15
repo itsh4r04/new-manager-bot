@@ -648,7 +648,16 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 FREE_CHANNELS[chat_id] = name
                 FREE_CHANNEL_LINKS[chat_id] = link
                 save_data()
-                await update.message.reply_text(f"Success! Free batch '{name}' has been added to the list.")
+                await update.message.delete()
+                user_id = update.effective_user.id
+                keyboard = [[InlineKeyboardButton("👑 Admin Panel", callback_data='admin_panel')]]
+                if is_owner(user_id):
+                    keyboard.append([InlineKeyboardButton("🔑 Owner Panel", callback_data='owner_panel')])
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=f"✅ Success! Free batch '{name}' has been added.\n\nReturning to the main menu.",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
             else:
                 await update.message.reply_text("Some information was missing. Please start the process again.")
         except ValueError:
@@ -680,7 +689,16 @@ async def handle_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         html_entry = f"<a href='{link}'>💎<code>{name}</code></a> - For premium content."
         PAID_CHANNELS.append(html_entry)
         save_data()
-        await update.message.reply_text(f"Paid channel '{name}' added successfully.")
+        await update.message.delete()
+        user_id = update.effective_user.id
+        keyboard = [[InlineKeyboardButton("👑 Admin Panel", callback_data='admin_panel')]]
+        if is_owner(user_id):
+            keyboard.append([InlineKeyboardButton("🔑 Owner Panel", callback_data='owner_panel')])
+        await context.bot.send_message(
+            chat_id=user_id,
+            text=f"✅ Paid channel '{name}' added successfully.\n\nReturning to the main menu.",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
 
     elif state == 'awaiting_remove_paid_channel_num':
         try:
