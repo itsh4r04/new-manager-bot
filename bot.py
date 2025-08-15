@@ -265,11 +265,17 @@ async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat.type == ChatType.PRIVATE:
         text = f"Your User ID is: <code>{user.id}</code>\n(Click to copy)"
     elif chat.type == ChatType.CHANNEL:
+        # Jab command channel mein aayega, toh bot yahan se reply karega
         text = f"This Channel's Chat ID is: <code>{chat.id}</code>\n(Click to copy)"
     else:
+        # Yeh Group ya Supergroup ke liye hai
         text = f"This {chat.type.capitalize()}'s Chat ID is: <code>{chat.id}</code>\n(Click to copy)"
-    await update.message.reply_html(text)
-
+    
+    try:
+        await update.message.reply_html(text)
+    except Exception as e:
+        logger.error(f"Failed to send /id reply in chat {chat.id}: {e}")
+        
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     user_id = query.from_user.id
