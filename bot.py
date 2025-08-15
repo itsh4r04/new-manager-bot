@@ -732,7 +732,12 @@ def main():
     # Register handlers
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+
+    # Yeh handler private chats aur groups ke liye काम करेगा
     application.add_handler(CommandHandler("id", id_command))
+    # Yeh NAYA handler khas taur par channels mein commands ke liye hai
+    application.add_handler(MessageHandler(filters.COMMAND & filters.ChatType.CHANNEL, id_command))
+
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_error_handler(error_handler)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_input))
