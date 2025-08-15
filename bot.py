@@ -264,6 +264,8 @@ async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if chat.type == ChatType.PRIVATE:
         text = f"Your User ID is: <code>{user.id}</code>\n(Click to copy)"
+    elif chat.type == ChatType.CHANNEL:
+        text = f"This Channel's Chat ID is: <code>{chat.id}</code>\n(Click to copy)"
     else:
         text = f"This {chat.type.capitalize()}'s Chat ID is: <code>{chat.id}</code>\n(Click to copy)"
     await update.message.reply_html(text)
