@@ -86,10 +86,12 @@ logger = logging.getLogger(__name__)
 
 
 # --- DATA PERSISTENCE ---
+# --- DATA PERSISTENCE ---
 def save_data():
-    """Saves the current bot data to a JSON file."""
+    """Saves the current bot data to a JSON file atomically to prevent data loss."""
+    temp_file_path = DATA_FILE + ".tmp"
     try:
-        # FIX: Ensure the directory exists before writing the file
+        # Ensure the directory exists before writing the file
         os.makedirs(os.path.dirname(DATA_FILE), exist_ok=True)
         data = {
             "ADMIN_IDS": ADMIN_IDS,
@@ -99,11 +101,22 @@ def save_data():
             "BLOCKED_USER_IDS": list(BLOCKED_USER_IDS),
             "ACTIVE_CHATS": ACTIVE_CHATS
         }
-        with open(DATA_FILE, "w") as f:
+        # First, write to a temporary file
+        with open(temp_file_path, "w") as f:
             json.dump(data, f, indent=4)
+        
+        # If writing is successful, atomically replace the old file with the new one
+        os.replace(temp_file_path, DATA_FILE)
+        
         logger.info("Data saved successfully.")
     except Exception as e:
         logger.error(f"Error saving data: {e}")
+        # If an error occurs, try to remove the temporary file
+        if os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+            except Exception as e_rm:
+                logger.error(f"Failed to remove temporary file: {e_rm}")
 
 def load_data():
     """Loads bot data from a JSON file on startup."""
